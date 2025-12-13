@@ -13,3 +13,5 @@ Simple boids simulation, displays rectangles as boids
 - fix bug where a group of boids can get stuck / small circle rotations
 
 - implement feature that changes color of all boids grouped together
+
+also can probably use numpy for faster vector operations, but not a bottleneck whatsoever
