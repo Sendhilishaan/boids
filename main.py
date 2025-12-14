@@ -3,7 +3,9 @@ import random
 from typing import List
 
 pygame.init()
-screen = pygame.display.set_mode((780, 720))
+screen_width = 1000
+screen_height = 1000
+screen = pygame.display.set_mode((screen_width, screen_height))
 clock = pygame.time.Clock()
 running = True
 
@@ -58,20 +60,23 @@ class boid:
 
         self.d = [total_x / mag, total_y / mag]
 
+        # update dt
+        self.velocity_change()
+
         # update, multiply by dt
         self.x += self.dt * self.d[0]
         self.y += self.dt * self.d[1]
 
         # boundary logic, make them bounce around if at edge of screen
-        if self.x >= 770:
+        if self.x >= screen_width - 10:
             self.d[0] = -self.d[0]
-            self.x = 770
+            self.x = screen_width - 10
         if self.x <= 10:
             self.d[0] = -self.d[0]
             self.x = 10
-        if self.y >= 710:
+        if self.y >= screen_height - 10:
             self.d[1] = -self.d[1]
-            self.y = 710
+            self.y = screen_height - 10
         if self.y <= 10:
             self.d[1] = -self.d[1]
             self.y = 10
@@ -150,6 +155,12 @@ class boid:
             return (steer_x / mag, steer_y / mag)
         return (0, 0)
 
+    def velocity_change(self) -> None:
+        """
+        boids are faster with more friends!
+        """
+        self.dt = 1 + len(self.nearby) * 0.5
+
 
 class flock:
     """
@@ -161,7 +172,7 @@ class flock:
         self.boids = []
         for _ in range(n):
             self.boids.append(
-                boid(random.randrange(100, 700), random.randrange(100, 700))
+                boid(random.randrange(100, 900), random.randrange(100, 900))
             )
 
         self.rects = []
@@ -187,10 +198,16 @@ class flock:
         for b in self.boids:
             center = (b.x + 5, b.y + 5)
             end = (center[0] + b.d[0] * 15, center[1] + b.d[1] * 15)
-            pygame.draw.line(screen, "black", center, end, width=3)
+            pygame.draw.line(screen, "black", center, end, width=2)
+
+    def add_boid(self) -> None:
+        """
+        add boid on click
+        """
+        pass
 
 
-flocky = flock(50)
+flocky = flock(100)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -199,7 +216,7 @@ while running:
     screen.fill("white")
 
     background = pygame.image.load("Toronto_map.png")
-    screen.blit(background, (0, 0))
+    # screen.blit(background, (0, 0))
 
     flocky.flyem()
     # flocky._view_radius()
@@ -208,6 +225,6 @@ while running:
         pygame.draw.rect(screen, "blue", recty.rect, 40)
 
     pygame.display.flip()
-    clock.tick(64)
+    clock.tick(144)
 
 pygame.quit()
