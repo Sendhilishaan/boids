@@ -1,6 +1,9 @@
 import pygame
 import random
 from typing import List
+import numpy as np
+import cv2 as cv
+
 
 pygame.init()
 screen_width = 1000
@@ -8,8 +11,7 @@ screen_height = 1000
 screen = pygame.display.set_mode((screen_width, screen_height))
 clock = pygame.time.Clock()
 running = True
-
-middle_screen = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
+middle_screen = pygame.Vector2(screen_width / 2, screen_height / 2)
 
 
 class boid:
@@ -207,24 +209,47 @@ class flock:
         pass
 
 
-flocky = flock(100)
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+def boidss():
+    pygame.init()
+    screen_width = 1000
+    screen_height = 1000
+    screen = pygame.display.set_mode((screen_width, screen_height))
+    clock = pygame.time.Clock()
+    running = True
 
-    screen.fill("white")
+    cap = cv.VideoCapture(0)
+    if not cap.isOpened():
+        print("brocken")
+        pygame.quit()
 
-    background = pygame.image.load("Toronto_map.png")
-    # screen.blit(background, (0, 0))
+    flocky = flock(100)
+    while running:
+        good_cap, frame = cap.read()
 
-    flocky.flyem()
-    # flocky._view_radius()
-    flocky._view_direction()
-    for recty in flocky.boids:
-        pygame.draw.rect(screen, "blue", recty.rect, 40)
+        if not good_cap:
+            pygame.quit()
 
-    pygame.display.flip()
-    clock.tick(144)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-pygame.quit()
+        screen.fill("white")
+
+        # background = pygame.image.load(frame)
+        background = pygame.surfarray.make_surface(frame)
+        screen.blit(background, (0, 0))
+
+        flocky.flyem()
+        # flocky._view_radius()
+        flocky._view_direction()
+        for recty in flocky.boids:
+            pygame.draw.rect(screen, "blue", recty.rect, 40)
+
+        pygame.display.flip()
+        clock.tick(144)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    boidss()
