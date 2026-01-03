@@ -1,5 +1,6 @@
 #include "SDL2/SDL_events.h"
 #include "SDL2/SDL_keycode.h"
+#include "SDL2/SDL_mouse.h"
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_surface.h>
 #include <SDL2/SDL_timer.h>
@@ -21,6 +22,7 @@ void load_grid(SDL_Window *window, SDL_Surface *surface);
 void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y);
 void logic(SDL_Surface *surface);
 void drawGrid(SDL_Surface *surface);
+void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y);
 
 int GRID[SCREEN_WIDTH / PIXEL_SIZE][SCREEN_HEIGHT / PIXEL_SIZE];
 
@@ -72,13 +74,14 @@ int main() {
 				running = 0;
 			}
 
-			if (event.button.button == 1 && event.type == SDL_MOUSEBUTTONDOWN) {
-				printf("x: %d, y: %d\n", event.button.x, event.button.y);
+			if (event.button.button == SDL_BUTTON_LEFT && event.type == SDL_MOUSEBUTTONDOWN) {
 				addCell(window, surface, event.button.x, event.button.y);
+			}
+			if (event.button.button == SDL_BUTTON_RIGHT && event.type == SDL_MOUSEBUTTONDOWN) {
+				remCell(window, surface, event.button.x, event.button.y);
 			}
 			if (event.key.keysym.sym == SDLK_RETURN) {
 				playing = 1;
-				printf("starting");
 			}
 
 
@@ -138,14 +141,34 @@ void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
 
 	int xArr = x / PIXEL_SIZE;
 	int yArr = y / PIXEL_SIZE;
+	
+	if (GRID[xArr][yArr] == 0) {
 
-	int xPos = (x / 10) * 10;
-	int yPos = (y / 10) * 10;
+		int xPos = (x / 10) * 10;
+		int yPos = (y / 10) * 10;
 
-	SDL_Rect *cell = &(SDL_Rect){xPos, yPos, PIXEL_SIZE, PIXEL_SIZE};
-	SDL_FillRect(surface, cell, 0x00ffffff);
+		SDL_Rect *cell = &(SDL_Rect){xPos + 1, yPos + 1, PIXEL_SIZE - 1, PIXEL_SIZE - 1};
+		SDL_FillRect(surface, cell, 0x00ffffff);
 
-	GRID[xArr][yArr] = 1;
+		GRID[xArr][yArr] = 1;
+	}
+}
+void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
+	// add cell on lmb click at that location
+	// and to grid
+
+	int xArr = x / PIXEL_SIZE;
+	int yArr = y / PIXEL_SIZE;
+	if (GRID[xArr][yArr] == 1) {
+
+		int xPos = (x / 10) * 10;
+		int yPos = (y / 10) * 10;
+
+		SDL_Rect *cell = &(SDL_Rect){xPos + 1, yPos + 1, PIXEL_SIZE - 1, PIXEL_SIZE - 1};
+		SDL_FillRect(surface, cell, 0x00000000);
+
+		GRID[xArr][yArr] = 0;
+	}
 }
 
 void logic(SDL_Surface *surface) {
@@ -159,12 +182,11 @@ void logic(SDL_Surface *surface) {
 
 			for (int dx = -1; dx <= 1; dx++) {
 				for (int dy = -1; dy <= 1; dy++) {
-					if (dx == 0 && dy == 0) continue;  // Skip center cell
+					if (dx == 0 && dy == 0) continue;
 					
 					int nx = x + dx;
 					int ny = y + dy;
 					
-					// Check bounds
 					if (nx >= 0 && nx < SCREEN_WIDTH / PIXEL_SIZE && 
 						ny >= 0 && ny < SCREEN_HEIGHT / PIXEL_SIZE) {
 						if (GRID[nx][ny] == 1) liveCells++;
@@ -172,10 +194,9 @@ void logic(SDL_Surface *surface) {
 				}
 			}
 			
-			// Apply Conway's rules
 			if (liveCells < 2 || liveCells > 3) nextGrid[x][y] = 0;
-			if (liveCells == 2 || liveCells == 3) nextGrid[x][y] = GRID[x][y];  // Stays same
-			if (liveCells == 3) nextGrid[x][y] = 1;  // Birth
+			if (liveCells == 2 || liveCells == 3) nextGrid[x][y] = GRID[x][y];
+			if (liveCells == 3) nextGrid[x][y] = 1;
 		}
 	}
 
@@ -186,7 +207,7 @@ void drawGrid(SDL_Surface *surface) {
 	for (int x = 0; x <= SCREEN_WIDTH / PIXEL_SIZE; x++) {
 		for (int y = 0; y <= SCREEN_HEIGHT / PIXEL_SIZE; y++) {
 
-			SDL_Rect *cell = &(SDL_Rect){x * 10 , y * 10, PIXEL_SIZE, PIXEL_SIZE};
+			SDL_Rect *cell = &(SDL_Rect){x * PIXEL_SIZE , y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE};
 			if (GRID[x][y] == 1) { SDL_FillRect(surface, cell, 0x00ffffff); }
 		}
 	}
