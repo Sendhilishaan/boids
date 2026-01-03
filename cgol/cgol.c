@@ -1,24 +1,40 @@
+#include "SDL2/SDL_events.h"
+#include "SDL2/SDL_keycode.h"
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_surface.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
-#include <wchar.h>
+#include <string.h>
 
 #define SCREEN_WIDTH 640
 #define	SCREEN_HEIGHT 480
+#define PIXEL_SIZE 10
 
-void init_window();
+#define live 1
+#define dead 0
+
 void draw_grid();
+void test_rect(SDL_Window *window, SDL_Surface *surface, int x);
+void load_grid(SDL_Window *window, SDL_Surface *surface);
+void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y);
+void logic(SDL_Surface *surface);
+void drawGrid(SDL_Surface *surface);
+
+int GRID[SCREEN_WIDTH / PIXEL_SIZE][SCREEN_HEIGHT / PIXEL_SIZE];
+
+typedef struct {
+	int x, y;
+} cell;
+
+typedef struct {
+	cell *cells; // dynamic array
+	int count;
+	int capacity;
+} cellList;
 
 int main() {
-	printf("Hello cgol\n");
-	init_window();
-	return 1;
-}
-
-void init_window() {
 	SDL_Window *window = NULL;
 	SDL_Surface *screenSurface = NULL;
 	
@@ -26,25 +42,152 @@ void init_window() {
 		printf("Failed to init SDL");
 		exit(1);
 	}
-	
-	window = SDL_CreateWindow("cgol", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN); //|| SDL_WINDOW_MOUSE_GRABBED || SDL_WINDOW_MOUSE_CAPTURE);
+
+	window = SDL_CreateWindow(
+			"cgol",
+		SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED,
+		SCREEN_WIDTH,
+		SCREEN_HEIGHT,
+		SDL_WINDOW_SHOWN
+	);
 
 	if (window == NULL) {
 		printf("da window break");
 		exit(1);
 	}
 	
+	SDL_Event event;
+	int running = 1;
 	SDL_Surface *surface = SDL_GetWindowSurface(window);
-	SDL_Rect test_rect = {0, 0, 50, 50};
-	SDL_Rect *rect = &test_rect;
-	SDL_FillRect(surface, rect, 0x00ffffff);
-	SDL_UpdateWindowSurface(window);
-	
-	SDL_Delay(2000);
 
+	load_grid(window, surface);
+	SDL_UpdateWindowSurface(window);
+
+	int playing = 0;
+
+	while (running) {
+		while(SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				running = 0;
+			}
+
+			if (event.button.button == 1 && event.type == SDL_MOUSEBUTTONDOWN) {
+				printf("x: %d, y: %d\n", event.button.x, event.button.y);
+				addCell(window, surface, event.button.x, event.button.y);
+			}
+			if (event.key.keysym.sym == SDLK_RETURN) {
+				playing = 1;
+				printf("starting");
+			}
+
+
+		}
+
+		//SDL_FillRect(surface, NULL, 0x00000000);
+		// call the window update func here
+		if (playing == 1) {
+			SDL_FillRect(surface, NULL, 0x00000000);
+			logic(surface);
+			drawGrid(surface);
+			load_grid(window, surface);
+			SDL_Delay(1000);
+		}
+
+		SDL_UpdateWindowSurface(window);
+		SDL_Delay(16);
+
+	}
+	return 1;
 }
 
-void load_grid() {
-	// load grid upon start for user to select init squares
+void test_rect(SDL_Window *window, SDL_Surface *surface, int x) {
+	SDL_Rect test_rect = {0, 0, 10, 10};
+	SDL_Rect *rect = &test_rect;
 
+	SDL_FillRect(surface, rect, 0x00ffffff);
+}
+
+void load_grid(SDL_Window *window, SDL_Surface *surface) {
+	// load grid upon start for user to select init squares
+	// each "cell" is 10 by 10 so 64 / 48 cells in the screen
+	// we want to draw grid lines
+	SDL_Rect horiz = {0, PIXEL_SIZE, SCREEN_WIDTH, 1};
+	SDL_Rect *horizLine = &horiz;
+
+	SDL_Rect vert = {PIXEL_SIZE, 0, 1, SCREEN_HEIGHT};
+	SDL_Rect *vertLine = &vert;
+
+	int step = 0;
+	while (step < SCREEN_WIDTH || step < SCREEN_HEIGHT) {
+		if (step < SCREEN_HEIGHT) {
+			SDL_FillRect(surface, horizLine, 0x00808080);
+			horizLine->y += PIXEL_SIZE;
+		}
+		if (step < SCREEN_WIDTH) {
+			SDL_FillRect(surface, vertLine, 0x00808080);
+			vertLine->x += PIXEL_SIZE;
+		}
+		step += PIXEL_SIZE;
+	}
+}
+
+void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
+	// add cell on lmb click at that location
+	// and to grid
+
+	int xArr = x / PIXEL_SIZE;
+	int yArr = y / PIXEL_SIZE;
+
+	int xPos = (x / 10) * 10;
+	int yPos = (y / 10) * 10;
+
+	SDL_Rect *cell = &(SDL_Rect){xPos, yPos, PIXEL_SIZE, PIXEL_SIZE};
+	SDL_FillRect(surface, cell, 0x00ffffff);
+
+	GRID[xArr][yArr] = 1;
+}
+
+void logic(SDL_Surface *surface) {
+	static int nextGrid[SCREEN_WIDTH / PIXEL_SIZE][SCREEN_HEIGHT / PIXEL_SIZE];
+
+	// this needs alot of optimisation, just getting logic down
+	// and also can write cleaner vars
+	for (int x = 0; x <= SCREEN_WIDTH / PIXEL_SIZE; x++) {
+		for (int y = 0; y <= SCREEN_HEIGHT / PIXEL_SIZE; y++) {
+			int liveCells = 0;
+
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dy = -1; dy <= 1; dy++) {
+					if (dx == 0 && dy == 0) continue;  // Skip center cell
+					
+					int nx = x + dx;
+					int ny = y + dy;
+					
+					// Check bounds
+					if (nx >= 0 && nx < SCREEN_WIDTH / PIXEL_SIZE && 
+						ny >= 0 && ny < SCREEN_HEIGHT / PIXEL_SIZE) {
+						if (GRID[nx][ny] == 1) liveCells++;
+					}
+				}
+			}
+			
+			// Apply Conway's rules
+			if (liveCells < 2 || liveCells > 3) nextGrid[x][y] = 0;
+			if (liveCells == 2 || liveCells == 3) nextGrid[x][y] = GRID[x][y];  // Stays same
+			if (liveCells == 3) nextGrid[x][y] = 1;  // Birth
+		}
+	}
+
+	memcpy(GRID, nextGrid, sizeof(nextGrid));
+}
+
+void drawGrid(SDL_Surface *surface) {
+	for (int x = 0; x <= SCREEN_WIDTH / PIXEL_SIZE; x++) {
+		for (int y = 0; y <= SCREEN_HEIGHT / PIXEL_SIZE; y++) {
+
+			SDL_Rect *cell = &(SDL_Rect){x * 10 , y * 10, PIXEL_SIZE, PIXEL_SIZE};
+			if (GRID[x][y] == 1) { SDL_FillRect(surface, cell, 0x00ffffff); }
+		}
+	}
 }
