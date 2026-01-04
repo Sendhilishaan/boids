@@ -5,6 +5,7 @@
 #include <SDL2/SDL_surface.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_video.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <string.h>
@@ -19,10 +20,8 @@
 void draw_grid();
 void test_rect(SDL_Window *window, SDL_Surface *surface, int x);
 void load_grid(SDL_Window *window, SDL_Surface *surface);
-void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y);
 void logic(SDL_Surface *surface);
 void drawGrid(SDL_Surface *surface);
-void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y);
 
 int GRID[SCREEN_WIDTH / PIXEL_SIZE][SCREEN_HEIGHT / PIXEL_SIZE];
 
@@ -31,10 +30,13 @@ typedef struct {
 } cell;
 
 typedef struct {
+	size_t count;
+	size_t capacity;
 	cell *cells; // dynamic array
-	int count;
-	int capacity;
 } cellList;
+
+void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y, cellList *aliveCells);
+void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y, cellList *aliveCells);
 
 int main() {
 	SDL_Window *window = NULL;
@@ -68,6 +70,12 @@ int main() {
 
 	int playing = 0;
 
+	// cellList init
+	cellList aliveCells;
+	aliveCells.count = 0;
+	aliveCells.capacity = 10;
+	aliveCells.cells = malloc(aliveCells.capacity * sizeof(cell));
+
 	while (running) {
 		while(SDL_PollEvent(&event)) {
 			if (event.type == SDL_QUIT) {
@@ -75,10 +83,10 @@ int main() {
 			}
 
 			if (event.button.button == SDL_BUTTON_LEFT && event.type == SDL_MOUSEBUTTONDOWN) {
-				addCell(window, surface, event.button.x, event.button.y);
+				addCell(window, surface, event.button.x, event.button.y, &aliveCells);
 			}
 			if (event.button.button == SDL_BUTTON_RIGHT && event.type == SDL_MOUSEBUTTONDOWN) {
-				remCell(window, surface, event.button.x, event.button.y);
+				remCell(window, surface, event.button.x, event.button.y, &aliveCells);
 			}
 			if (event.key.keysym.sym == SDLK_RETURN) {
 				playing = 1;
@@ -102,13 +110,6 @@ int main() {
 
 	}
 	return 1;
-}
-
-void test_rect(SDL_Window *window, SDL_Surface *surface, int x) {
-	SDL_Rect test_rect = {0, 0, 10, 10};
-	SDL_Rect *rect = &test_rect;
-
-	SDL_FillRect(surface, rect, 0x00ffffff);
 }
 
 void load_grid(SDL_Window *window, SDL_Surface *surface) {
@@ -135,7 +136,7 @@ void load_grid(SDL_Window *window, SDL_Surface *surface) {
 	}
 }
 
-void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
+void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y, cellList *aliveCells) {
 	// add cell on lmb click at that location
 	// and to grid
 
@@ -147,13 +148,22 @@ void addCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
 		int xPos = (x / 10) * 10;
 		int yPos = (y / 10) * 10;
 
+		cell newCell = {xPos, yPos};
+
+		if (aliveCells->capacity <= aliveCells->count) {
+			aliveCells->capacity *= 2;
+			aliveCells->cells = realloc(aliveCells->cells, sizeof(cell) * aliveCells->capacity);
+		}
+		aliveCells->cells[aliveCells->count] = newCell;
+		aliveCells->count++;
+
 		SDL_Rect *cell = &(SDL_Rect){xPos + 1, yPos + 1, PIXEL_SIZE - 1, PIXEL_SIZE - 1};
 		SDL_FillRect(surface, cell, 0x00ffffff);
 
 		GRID[xArr][yArr] = 1;
 	}
 }
-void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
+void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y, cellList *aliveCells) {
 	// add cell on lmb click at that location
 	// and to grid
 
@@ -166,6 +176,16 @@ void remCell(SDL_Window *window, SDL_Surface *surface, int x, int y) {
 
 		SDL_Rect *cell = &(SDL_Rect){xPos + 1, yPos + 1, PIXEL_SIZE - 1, PIXEL_SIZE - 1};
 		SDL_FillRect(surface, cell, 0x00000000);
+
+		for (size_t i = aliveCells->count; i < aliveCells->count; i++) {
+			if (aliveCells->cells[i].x == xPos && aliveCells->cells[i].y == yPos) {
+				for (size_t j = i; j < aliveCells->count - 1; j++) {
+					aliveCells[j] = aliveCells[j + 1];
+				}
+				aliveCells->count--;
+				break;
+			}
+		}
 
 		GRID[xArr][yArr] = 0;
 	}
